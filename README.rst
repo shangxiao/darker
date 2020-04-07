@@ -14,6 +14,8 @@
 .. _downloads-badge: https://pepy.tech/project/darker
 .. |black-badge| image:: https://img.shields.io/badge/code%20style-black-000000.svg
 .. _black-badge: https://github.com/psf/black
+.. |gitpod-badge| image:: https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod
+.. _gitpod-badge: https://github.com/akaihola/darker
 
 What?
 =====
