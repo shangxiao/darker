@@ -83,4 +83,10 @@ def parse_command_line(argv: List[str]) -> Namespace:
         dest="line_length",
         help="How many characters per line to allow [default: 88]",
     )
+    parser.add_argument(
+        "-p",
+        "--pre-commit",
+        action="store_true",
+        help="Re-format files both in the working tree and in the Git staging index",
+    )
     return parser.parse_args(argv)

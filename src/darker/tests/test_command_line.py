@@ -6,7 +6,7 @@ from unittest.mock import call, patch
 import pytest
 
 from darker import black_diff
-from darker.__main__ import main
+from darker.__main__ import WorkTreeFileAccess, main
 from darker.command_line import parse_command_line
 
 
@@ -81,24 +81,27 @@ def test_black_options(monkeypatch, tmpdir, git_repo, options, expect):
     Mode.assert_called_once_with(*expect_args, **expect_kwargs)
 
 
+A_PY_ACCESS = WorkTreeFileAccess({Path('a.py')})
+
+
 @pytest.mark.parametrize(
     'options, expect',
     [
-        (['a.py'], ({Path('a.py')}, False, {}, False)),
-        (['--isort', 'a.py'], ({Path('a.py')}, True, {}, False)),
+        (['a.py'], (False, {}, False, A_PY_ACCESS)),
+        (['--isort', 'a.py'], (True, {}, False, A_PY_ACCESS)),
         (
             ['--config', 'my.cfg', 'a.py'],
-            ({Path('a.py')}, False, {'config': 'my.cfg'}, False),
+            (False, {'config': 'my.cfg'}, False, A_PY_ACCESS),
         ),
         (
             ['--line-length', '90', 'a.py'],
-            ({Path('a.py')}, False, {'line_length': 90}, False),
+            (False, {'line_length': 90}, False, A_PY_ACCESS),
         ),
         (
             ['--skip-string-normalization', 'a.py'],
-            ({Path('a.py')}, False, {'skip_string_normalization': True}, False),
+            (False, {'skip_string_normalization': True}, False, A_PY_ACCESS),
         ),
-        (['--diff', 'a.py'], ({Path('a.py')}, False, {}, True)),
+        (['--diff', 'a.py'], (False, {}, True, A_PY_ACCESS)),
     ],
 )
 def test_options(options, expect):

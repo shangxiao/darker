@@ -2,9 +2,12 @@
 
 import logging
 import sys
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from difflib import unified_diff
+from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, List, Set
 
 from darker.black_diff import BlackArgs, run_black
 from darker.chooser import choose_lines
@@ -14,7 +17,11 @@ from darker.diff import (
     opcodes_to_chunks,
     opcodes_to_edit_linenums,
 )
-from darker.git import git_diff_name_only, git_get_unmodified_content
+from darker.git import (
+    git_diff_name_only,
+    git_get_index_content,
+    git_get_unmodified_content,
+)
 from darker.import_sorting import apply_isort, isort
 from darker.utils import get_common_root, joinlines
 from darker.verification import NotEquivalentError, verify_ast_unchanged
@@ -22,8 +29,78 @@ from darker.verification import NotEquivalentError, verify_ast_unchanged
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class _BaseGitFileAccessData:
+    """Fields for Git file access classes (separate base to satisfy Mypy)"""
+
+    paths: Set[Path]
+    git_root: Path = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        super().__setattr__('git_root', get_common_root(self.paths))
+
+
+class BaseGitFileAccess(_BaseGitFileAccessData, ABC):
+    """Git information collector for given file paths"""
+
+    @lru_cache()
+    def _get_changed_files(self) -> Set[Path]:
+        return git_diff_name_only(self.paths, self.git_root)
+
+    def get_head_srcs(self) -> Dict[Path, List[str]]:
+        """Return content of the files as it was at Git HEAD"""
+        return {
+            src: git_get_unmodified_content(src, self.git_root)
+            for src in self._get_changed_files()
+        }
+
+    def get_absolute_path(self, relative_path: Path) -> Path:
+        """Convert a relative path to a file in the repository to an absolute one"""
+        return self.git_root / relative_path
+
+    @abstractmethod
+    def get_modified_srcs(self) -> Dict[Path, str]:
+        """Must be overridden to return modified text of the files"""
+
+    @abstractmethod
+    def write(self, relative_path: Path, content: str) -> None:
+        """Must be overridden to overwrite the given file with the given content"""
+
+
+class WorkTreeFileAccess(BaseGitFileAccess):
+    """Collect information about the Git working tree"""
+
+    def get_modified_srcs(self) -> Dict[Path, str]:
+        """Return current content of the files in the Git working tree"""
+        return {
+            src: (self.git_root / src).read_text() for src in self._get_changed_files()
+        }
+
+    def write(self, relative_path: Path, content: str) -> None:
+        """Overwrite the given file with the given content"""
+        self.get_absolute_path(relative_path).write_text(content)
+
+
+class IndexFileAccess(BaseGitFileAccess):
+    """Collect information about the Git staging index"""
+
+    def get_modified_srcs(self) -> Dict[Path, str]:
+        """Return current content of the files in the Git staging index"""
+        return {
+            src: joinlines(git_get_index_content(src, self.git_root))
+            for src in self._get_changed_files()
+        }
+
+    def write(self, relative_path: Path, content: str) -> None:
+        """Overwrite the given file with the given content"""
+        self.get_absolute_path(relative_path).write_text(content)
+
+
 def format_edited_parts(
-    srcs: Iterable[Path], isort: bool, black_args: BlackArgs, print_diff: bool,
+    enable_isort: bool,
+    black_args: BlackArgs,
+    print_diff: bool,
+    git_file_access: BaseGitFileAccess,
 ) -> None:
     """Black (and optional isort) formatting for chunks with edits since the last commit
 
@@ -42,34 +119,31 @@ def format_edited_parts(
        the original edited to-file
     10. write the reformatted source back to the original file
 
-    :param srcs: Directories and files to re-format
-    :param isort: ``True`` to also run ``isort`` first on each changed file
+    :param enable_isort: ``True`` to also run ``isort`` first on each changed file
     :param black_args: Command-line arguments to send to ``black.FileMode``
     :param print_diff: ``True`` to output diffs instead of modifying source files
+    :param git_file_access: An object through which files in the Git repository are read
+                            from and written to.
 
     """
-    git_root = get_common_root(srcs)
-    changed_files = git_diff_name_only(srcs, git_root)
-    head_srcs = {
-        src: git_get_unmodified_content(src, git_root) for src in changed_files
-    }
-    worktree_srcs = {src: (git_root / src).read_text() for src in changed_files}
+    head_srcs = git_file_access.get_head_srcs()
+    git_modified_srcs = git_file_access.get_modified_srcs()
 
     # 1. run isort
-    if isort:
+    if enable_isort:
         config = black_args.get("config")
         line_length = black_args.get("line_length")
         edited_srcs = {
             src: apply_isort(edited_content, src, config, line_length)
-            for src, edited_content in worktree_srcs.items()
+            for src, edited_content in git_modified_srcs.items()
         }
     else:
-        edited_srcs = worktree_srcs
+        edited_srcs = git_modified_srcs
 
     for src_relative, edited_content in edited_srcs.items():
         max_context_lines = len(edited_content)
         for context_lines in range(max_context_lines + 1):
-            src = git_root / src_relative
+            src = git_file_access.get_absolute_path(src_relative)
             edited = edited_content.splitlines()
             head_lines = head_srcs[src_relative]
 
@@ -81,9 +155,9 @@ def format_edited_parts(
                 opcodes_to_edit_linenums(edited_opcodes, context_lines)
             )
             if (
-                isort
+                enable_isort
                 and not edited_linenums
-                and edited_content == worktree_srcs[src_relative]
+                and edited_content == git_modified_srcs[src_relative]
             ):
                 logger.debug("No changes in %s after isort", src)
                 break
@@ -136,7 +210,7 @@ def format_edited_parts(
                 if print_diff:
                     difflines = list(
                         unified_diff(
-                            worktree_srcs[src_relative].splitlines(),
+                            git_modified_srcs[src_relative].splitlines(),
                             chosen_lines,
                             src.as_posix(),
                             src.as_posix(),
@@ -149,7 +223,7 @@ def format_edited_parts(
                         print("\n".join(rest))
                 else:
                     logger.info("Writing %s bytes into %s", len(result_str), src)
-                    src.write_text(result_str)
+                    git_file_access.write(src_relative, result_str)
                 break
 
 
@@ -180,7 +254,9 @@ def main(argv: List[str] = None) -> None:
         black_args["skip_string_normalization"] = args.skip_string_normalization
 
     paths = {Path(p) for p in args.src}
-    format_edited_parts(paths, args.isort, black_args, args.diff)
+    format_edited_parts(args.isort, black_args, args.diff, WorkTreeFileAccess(paths))
+    if args.pre_commit:
+        format_edited_parts(args.isort, black_args, args.diff, IndexFileAccess(paths))
 
 
 if __name__ == "__main__":

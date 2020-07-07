@@ -8,6 +8,20 @@ from typing import Iterable, List, Set
 logger = logging.getLogger(__name__)
 
 
+def git_get_content(path: Path, cwd: Path, revision: str) -> List[str]:
+    """Get text lines of a file at a given Git revision
+
+    :param path: The relative path of the file in the Git repository
+    :param cwd: The root of the Git repository
+    :param revision: ``"HEAD"`` to get content at the last commit, or ``""`` to get what
+           is currently in the Git index (stage 0)
+
+    """
+    cmd = ["git", "show", f"{revision}:./{path}"]
+    logger.debug("[%s]$ %s", cwd, " ".join(cmd))
+    return check_output(cmd, cwd=str(cwd), encoding='utf-8').splitlines()
+
+
 def git_get_unmodified_content(path: Path, cwd: Path) -> List[str]:
     """Get unmodified text lines of a file at Git HEAD
 
@@ -15,9 +29,17 @@ def git_get_unmodified_content(path: Path, cwd: Path) -> List[str]:
     :param cwd: The root of the Git repository
 
     """
-    cmd = ["git", "show", f":./{path}"]
-    logger.debug("[%s]$ %s", cwd, " ".join(cmd))
-    return check_output(cmd, cwd=str(cwd), encoding='utf-8').splitlines()
+    return git_get_content(path, cwd, "HEAD")
+
+
+def git_get_index_content(path: Path, cwd: Path) -> List[str]:
+    """Get text lines of a file in the Git index (stage 0)
+
+    :param path: The relative path of the file in the Git repository
+    :param cwd: The root of the Git repository
+
+    """
+    return git_get_content(path, cwd, "")
 
 
 def should_reformat_file(path: Path) -> bool:
