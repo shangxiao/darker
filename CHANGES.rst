@@ -40,6 +40,8 @@ Added
   ``skip_string_normalization = true`` from a configuration file
 - The ``--diff`` option will highlight syntax on screen if the ``pygments`` package is
   available.
+- Include a Pytest plugin. ``pytest --darker`` causes a test failure for each file which
+  needs reformatting.
 
 Fixed
 -----
