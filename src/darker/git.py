@@ -111,7 +111,13 @@ class EditedLinenumsDiffer:
     def revision_vs_worktree(self, path_in_repo: Path, context_lines: int) -> List[int]:
         """Return numbers of lines changed between a given revision and the worktree"""
         lines = (self.git_root / path_in_repo).read_text("utf-8").splitlines()
-        return self.revision_vs_lines(path_in_repo, lines, context_lines)
+        linenums = self.revision_vs_lines(path_in_repo, lines, context_lines)
+        logger.debug(
+            f"Edited line numbers in %s: %s",
+            path_in_repo,
+            " ".join(str(n) for n in linenums),
+        )
+        return linenums
 
     def revision_vs_lines(
         self, path_in_repo: Path, lines: List[str], context_lines: int
