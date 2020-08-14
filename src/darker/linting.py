@@ -77,6 +77,7 @@ def run_linter(cmdline: str, git_root: Path, paths: Set[Path], revision: str) ->
     # assert needed for MyPy (see https://stackoverflow.com/q/57350490/15770)
     assert linter_process.stdout is not None
     edited_linenums_differ = EditedLinenumsDiffer(git_root, revision)
+    prev_path, prev_linenum = None, 0
     for line in linter_process.stdout:
         path_in_repo, linter_error_linenum = _parse_linter_line(line, git_root)
         if path_in_repo is None:
@@ -85,4 +86,7 @@ def run_linter(cmdline: str, git_root: Path, paths: Set[Path], revision: str) ->
             path_in_repo, context_lines=0
         )
         if linter_error_linenum in edited_linenums:
+            if path_in_repo != prev_path or linter_error_linenum > prev_linenum + 1:
+                print()
+            prev_path, prev_linenum = path_in_repo, linter_error_linenum
             print(line, end="")
