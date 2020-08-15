@@ -38,8 +38,8 @@ Added
   against when finding out modified lines. Defaults to ``HEAD`` as before.
 - ``--no-skip-string-normalization`` flag to override
   ``skip_string_normalization = true`` from a configuration file
-- The ``--diff`` option will highlight syntax on screen if the ``pygments`` package is
-  available.
+- the ``--diff`` and ``--lint`` options will highlight syntax on screen if the
+  pygments_ package is available.
 
 Fixed
 -----
@@ -98,3 +98,4 @@ Added
 .. _pytest-darker: https://pypi.org/project/pytest-darker/
 .. _Black 19.10: https://github.com/psf/black/blob/master/CHANGES.md#1910b0
 .. _Black 20.8: https://github.com/psf/black/blob/master/CHANGES.md#208b0
+.. _pygments: https://pypi.org/project/Pygments/

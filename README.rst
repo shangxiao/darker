@@ -31,14 +31,18 @@ The reformatters and linters supported are:
 - Mypy_ for static type checking
 - Pylint_ for generic static checking of code
 - Flake8_ for style guide enforcement
+- cov_to_lint.py_ for test coverage
 
-*New in version 1.1.0:* Support for Mypy_, Pylint_ and other linters.
+*New in version 1.1.0:* Support for Mypy_, Pylint_, Flake8_ and compatible linters.
+
+*New in version 1.2.0:* Support for test coverage.
 
 .. _black: https://github.com/python/black
 .. _isort: https://github.com/timothycrosley/isort
 .. _Mypy: https://pypi.org/project/mypy
 .. _Pylint: https://pypi.org/project/pylint
 .. _Flake8: https://pypi.org/project/flake8
+.. _cov_to_lint.py: https://gist.github.com/akaihola/2511fe7d2f29f219cb995649afd3d8d2
 
 Why?
 ====
