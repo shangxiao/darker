@@ -113,7 +113,7 @@ class EditedLinenumsDiffer:
         lines = (self.git_root / path_in_repo).read_text("utf-8").splitlines()
         linenums = self.revision_vs_lines(path_in_repo, lines, context_lines)
         logger.debug(
-            f"Edited line numbers in %s: %s",
+            "Edited line numbers in %s: %s",
             path_in_repo,
             " ".join(str(n) for n in linenums),
         )
