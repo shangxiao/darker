@@ -2,7 +2,7 @@
 
 ISORT_INSTRUCTION = "Please run `pip install 'darker[isort]'`"
 
-DESCRIPTION = [
+DESCRIPTION_PARTS = [
     "Re-format Python source files by using",
     "- `isort` to sort Python import definitions alphabetically within logical"
     " sections",
@@ -12,9 +12,10 @@ try:
     import isort
 except ImportError:
     isort = None
-    DESCRIPTION.extend(
+    DESCRIPTION_PARTS.extend(
         ["", f"{ISORT_INSTRUCTION} to enable sorting of import definitions"]
     )
+DESCRIPTION = "".join(DESCRIPTION_PARTS)
 
 
 SRC = "Path(s) to the Python source file(s) to reformat"
