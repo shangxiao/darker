@@ -1,11 +1,22 @@
 from pathlib import Path
 from textwrap import dedent
 
-from darker.utils import debug_dump, get_common_root, get_path_ancestry, joinlines
+from darker.utils import (
+    TextDocument,
+    debug_dump,
+    get_common_root,
+    get_path_ancestry,
+    joinlines,
+)
 
 
 def test_debug_dump(capsys):
-    debug_dump([(1, ["black"], ["chunks"])], "old content", "new content", [2, 3])
+    debug_dump(
+        [(1, ("black",), ("chunks",))],
+        TextDocument.from_str("old content"),
+        TextDocument.from_str("new content"),
+        [2, 3],
+    )
     assert capsys.readouterr().out == (
         dedent(
             """\
@@ -19,7 +30,7 @@ def test_debug_dump(capsys):
 
 
 def test_joinlines():
-    result = joinlines(["a", "b", "c"])
+    result = joinlines(("a", "b", "c"))
     assert result == "a\nb\nc\n"
 
 
